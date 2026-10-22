@@ -1,0 +1,52 @@
+
+name: Build Routine Android
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "RoutineAndroid/**"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Unzip project
+        run: |
+          mkdir -p extracted
+          unzip -o RoutineAndroid-source.zip -d extracted
+          find extracted -maxdepth 3 -type f | head -80
+
+      - name: Build APK
+        run: |
+          PROJECT=$(find extracted -name gradlew -type f -print -quit)
+          if [ -z "$PROJECT" ]; then
+            echo "Could not find gradlew in the ZIP."
+            echo "The project may need a Gradle wrapper added."
+            exit 1
+          fi
+          DIR=$(dirname "$PROJECT")
+          cd "$DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Save APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Routine-APK
+          path: extracted/**/build/outputs/apk/**/*.apk
+          if-no-files-found: error
